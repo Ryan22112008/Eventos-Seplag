@@ -1,0 +1,38 @@
+import { NextRequest, NextResponse } from "next/server";
+
+const protectedPrefixes = ["/participante", "/organizador", "/admin"];
+
+export function middleware(request: NextRequest) {
+  const nonce = btoa(crypto.randomUUID());
+  const developmentSources = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
+  const websocketSource = process.env.NODE_ENV === "development" ? " ws://localhost:*" : "";
+  const contentSecurityPolicy = [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${developmentSources}`,
+    `style-src 'self' 'nonce-${nonce}'`,
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "frame-src https://www.google.com",
+    `connect-src 'self'${websocketSource}`,
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join("; ");
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("Content-Security-Policy", contentSecurityPolicy);
+  requestHeaders.set("x-nonce", nonce);
+
+  const isProtected = protectedPrefixes.some((prefix) => request.nextUrl.pathname === prefix || request.nextUrl.pathname.startsWith(`${prefix}/`));
+  let response: NextResponse;
+  if (isProtected && !request.cookies.has("eventos_session")) {
+    const loginUrl = new URL("/login", request.url);
+    response = NextResponse.redirect(loginUrl);
+  } else {
+    response = NextResponse.next({ request: { headers: requestHeaders } });
+  }
+  response.headers.set("Content-Security-Policy", contentSecurityPolicy);
+  return response;
+}
+
+export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };

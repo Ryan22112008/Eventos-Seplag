@@ -1,0 +1,50 @@
+import Link from "next/link";
+import Image from "next/image";
+import { notFound } from "next/navigation";
+import { requireRole } from "@backend/auth/access";
+import { getManagedEvent } from "@backend/modules/events/event-service";
+import { listDisciplines } from "@backend/modules/events/discipline-service";
+import { listSessions } from "@backend/modules/events/session-service";
+import { EventForm } from "@frontend/components/events/event-form";
+import { deleteAssetAction, deleteDisciplineAction, deleteEventAction, deleteSessionAction, saveDisciplineAction, saveSessionAction, transitionEventAction, updateEventAction } from "@backend/server/actions/events";
+
+const assets = [
+  ["banner", "Banner"],
+  ["arteCertificadoFrente", "Arte do certificado — frente"],
+  ["arteCertificadoVerso", "Arte do certificado — verso"],
+] as const;
+const statusLabels: Record<string, string> = { RASCUNHO: "Rascunho", PUBLICADO: "Publicado", CANCELADO: "Cancelado", ENCERRADO: "Encerrado" };
+const toLocalDateTime = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+
+export default async function EditEventPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ erro?: string; salvo?: string }> }) {
+  const actor = await requireRole("ORGANIZADOR", "ADMIN");
+  const { id } = await params;
+  const query = await searchParams;
+  let event;
+  try { event = await getManagedEvent(actor, id); } catch { notFound(); }
+  const [disciplines, sessions] = await Promise.all([listDisciplines(actor, id), listSessions(actor, id)]);
+  const editable = event.status === "RASCUNHO" || event.status === "PUBLICADO";
+  const eventInitial = {
+    titulo: event.titulo, descricao: event.descricao, dataInicio: toLocalDateTime(event.dataInicio), dataTermino: toLocalDateTime(event.dataTermino),
+    local: event.local, cidade: event.cidade, urlGoogleMaps: event.urlGoogleMaps,
+    latitude: event.latitude?.toString() ?? "", longitude: event.longitude?.toString() ?? "", modalidade: event.modalidade,
+    nicho: event.nicho, vagasTotais: event.vagasTotais, cargaHoraria: event.cargaHoraria.toString(),
+    percentualMinimoPresenca: event.percentualMinimoPresenca.toString(), aceitaSubmissaoTrabalhos: event.aceitaSubmissaoTrabalhos,
+  };
+  return <main className="mx-auto min-h-screen max-w-5xl px-6 py-10">
+    <Link href="/organizador/eventos" className="text-sm text-blue-800 hover:underline">← Meus eventos</Link>
+    <header className="my-7 flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-semibold uppercase tracking-wide text-blue-800">Evento</p><h1 className="mt-1 text-3xl font-bold">{event.titulo}</h1><p className="mt-2 text-slate-600">Status: <strong>{statusLabels[event.status]}</strong></p></div>
+      <div className="flex flex-wrap gap-2">{event.status === "RASCUNHO" && <TransitionForm eventId={id} status="PUBLICADO" label="Publicar" />}{(event.status === "RASCUNHO" || event.status === "PUBLICADO") && <TransitionForm eventId={id} status="CANCELADO" label="Cancelar evento" />}{event.status === "PUBLICADO" && <TransitionForm eventId={id} status="ENCERRADO" label="Encerrar" />}{event.status === "RASCUNHO" && <form action={deleteEventAction}><input type="hidden" name="eventoId" value={id} /><button className="rounded-md border border-red-300 px-3 py-2 text-sm text-red-800">Excluir rascunho</button></form>}</div>
+    </header>
+    {query.erro && <p role="alert" className="mb-5 rounded-md bg-red-50 p-3 text-red-800">Não foi possível concluir a operação. Confira os dados, o status e suas permissões.</p>}
+    {query.salvo && <p role="status" className="mb-5 rounded-md bg-green-50 p-3 text-green-800">Alteração salva.</p>}
+    <section><h2 className="mb-4 text-xl font-semibold">Dados do evento</h2>{editable ? <EventForm action={updateEventAction} submitLabel="Salvar alterações" eventoId={id} initial={eventInitial} /> : <p className="rounded-md bg-amber-50 p-4 text-amber-900">Eventos cancelados ou encerrados permanecem somente para consulta.</p>}</section>
+    <section className="mt-10"><h2 className="mb-4 text-xl font-semibold">Arquivos privados</h2><div className="grid gap-4 md:grid-cols-3">{assets.map(([asset, label]) => <article key={asset} className="rounded-xl border bg-white p-4"><h3 className="font-semibold">{label}</h3>{event[asset] ? <Image src={`/api/eventos/${id}/assets/${asset}`} alt={label} width={640} height={360} unoptimized className="my-3 aspect-video w-full rounded object-cover" /> : <p className="my-3 text-sm text-slate-500">Nenhuma imagem enviada.</p>}{editable && <><form action={`/api/organizador/eventos/${id}/assets`} method="post" encType="multipart/form-data" className="grid gap-2"><input type="hidden" name="asset" value={asset} /><input required type="file" name="file" accept="image/png,image/jpeg" className="block w-full text-sm" /><button className="rounded-md bg-blue-800 px-3 py-2 text-sm font-semibold text-white">Enviar PNG/JPEG</button></form>{event[asset] && <form action={deleteAssetAction} className="mt-2"><input type="hidden" name="eventoId" value={id} /><input type="hidden" name="asset" value={asset} /><button className="text-sm text-red-800 underline">Remover arquivo</button></form>}</>}</article>)}</div><p className="mt-2 text-sm text-slate-500">PNG ou JPEG, até 5 MB. As imagens são privadas e só ficam visíveis para a equipe autorizada do evento.</p></section>
+    <section className="mt-10"><h2 className="mb-4 text-xl font-semibold">Disciplinas</h2>{disciplines.map((item) => <div key={item.id} className="mb-3 rounded-xl border bg-white p-4">{editable ? <form action={saveDisciplineAction} className="grid gap-3 sm:grid-cols-[1fr_180px_auto_auto]"><input type="hidden" name="eventoId" value={id} /><input type="hidden" name="disciplinaId" value={item.id} /><label className="grid gap-1 text-sm">Nome<input required name="nome" maxLength={180} defaultValue={item.nome} className="rounded-md border p-2" /></label><label className="grid gap-1 text-sm">Carga horária<input required name="cargaHoraria" type="number" min="0.01" step="0.01" defaultValue={item.cargaHoraria.toString()} className="rounded-md border p-2" /></label><button className="self-end rounded-md bg-slate-700 px-3 py-2 text-white">Salvar</button></form> : <p>{item.nome} · {item.cargaHoraria.toString()} h</p>}{editable && <form action={deleteDisciplineAction} className="mt-2"><input type="hidden" name="eventoId" value={id} /><input type="hidden" name="disciplinaId" value={item.id} /><button className="text-sm text-red-800 underline">Remover</button></form>}</div>)}{editable && <form action={saveDisciplineAction} className="mt-4 grid gap-3 rounded-xl border bg-white p-5 sm:grid-cols-[1fr_180px_auto]"><input type="hidden" name="eventoId" value={id} /><label className="grid gap-1 text-sm">Nova disciplina<input required name="nome" maxLength={180} className="rounded-md border p-2" /></label><label className="grid gap-1 text-sm">Carga horária<input required name="cargaHoraria" type="number" min="0.01" step="0.01" className="rounded-md border p-2" /></label><button className="self-end rounded-md bg-blue-800 px-4 py-2 text-white">Adicionar</button></form>}</section>
+    <section className="mt-10"><h2 className="mb-4 text-xl font-semibold">Sessões</h2>{sessions.map((item) => <div key={item.id} className="mb-3 rounded-xl border bg-white p-4">{editable ? <form action={saveSessionAction} className="grid gap-3 md:grid-cols-2"><input type="hidden" name="eventoId" value={id} /><input type="hidden" name="sessaoId" value={item.id} /><label className="grid gap-1 text-sm">Nome<input required name="nome" maxLength={180} defaultValue={item.nome} className="rounded-md border p-2" /></label><span className="hidden md:block" /><label className="grid gap-1 text-sm">Início<input required type="datetime-local" name="inicio" defaultValue={toLocalDateTime(item.inicio)} className="rounded-md border p-2" /></label><label className="grid gap-1 text-sm">Fim<input required type="datetime-local" name="fim" defaultValue={toLocalDateTime(item.fim)} className="rounded-md border p-2" /></label><button className="rounded-md bg-slate-700 px-4 py-2 text-white">Salvar sessão</button></form> : <p>{item.nome} · {item.inicio.toLocaleString("pt-BR")} – {item.fim.toLocaleString("pt-BR")}</p>}{event.status === "PUBLICADO" && <Link href={`/organizador/eventos/${id}/sessoes/${item.id}/check-in`} className="mt-3 inline-block rounded-md border border-blue-200 px-3 py-2 text-sm font-semibold text-blue-900 hover:bg-blue-50">Administrar check-in e presenças</Link>}{editable && <form action={deleteSessionAction} className="mt-2"><input type="hidden" name="eventoId" value={id} /><input type="hidden" name="sessaoId" value={item.id} /><button className="text-sm text-red-800 underline">Remover</button></form>}</div>)}{editable && <form action={saveSessionAction} className="grid gap-3 rounded-xl border bg-white p-5 md:grid-cols-2"><input type="hidden" name="eventoId" value={id} /><label className="grid gap-1 text-sm">Nova sessão<input required name="nome" maxLength={180} className="rounded-md border p-2" /></label><span className="hidden md:block" /><label className="grid gap-1 text-sm">Início<input required type="datetime-local" name="inicio" className="rounded-md border p-2" /></label><label className="grid gap-1 text-sm">Fim<input required type="datetime-local" name="fim" className="rounded-md border p-2" /></label><button className="rounded-md bg-blue-800 px-4 py-2 text-white md:col-span-2">Adicionar sessão</button></form>}</section>
+  </main>;
+}
+
+function TransitionForm({ eventId, status, label }: { eventId: string; status: "PUBLICADO" | "CANCELADO" | "ENCERRADO"; label: string }) {
+  return <form action={transitionEventAction}><input type="hidden" name="eventoId" value={eventId} /><input type="hidden" name="status" value={status} /><button className="rounded-md bg-slate-800 px-3 py-2 text-sm font-semibold text-white">{label}</button></form>;
+}
