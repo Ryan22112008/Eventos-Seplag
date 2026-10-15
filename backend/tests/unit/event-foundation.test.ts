@@ -4,6 +4,7 @@ import { canManageEvent, canManageEvents, canTransitionEvent, isSessionWithinEve
 import { detectAndValidateEventImage, MAX_EVENT_IMAGE_BYTES } from "@backend/lib/storage/validate-image";
 import { isValidPrivateStorageKey, resolvePrivateStorageKey } from "@backend/lib/storage/storage-key";
 import { replaceStoredObjectReference } from "@backend/lib/storage/replace-object-reference";
+import { calculateEventRates } from "@backend/modules/events/event-metrics";
 import type { StorageService } from "@backend/lib/storage/storage-service";
 
 const validEvent = {
@@ -25,6 +26,10 @@ const validEvent = {
 };
 
 describe("fundação do domínio de eventos", () => {
+  it("calcula taxas com denominadores documentados e evita divisão por zero", () => {
+    expect(calculateEventRates(25, 100, 20, 40)).toEqual({ occupancyRate: 25, attendanceRate: 50 });
+    expect(calculateEventRates(0, 0, 0, 0)).toEqual({ occupancyRate: null, attendanceRate: null });
+  });
   it("valida os dados básicos e transforma datas/números", () => {
     const result = eventInputSchema.parse(validEvent);
     expect(result.dataInicio).toBeInstanceOf(Date);
@@ -72,8 +77,13 @@ describe("fundação do domínio de eventos", () => {
 
   it("não aceita chaves de storage com path traversal ou arquivo nomeado pelo cliente", () => {
     const good = "123e4567-e89b-42d3-a456-426614174000/assets/banner/123e4567-e89b-42d3-a456-426614174001.png";
+    const certificate = "123e4567-e89b-42d3-a456-426614174000/certificados/123e4567-e89b-42d3-a456-426614174001/123e4567-e89b-42d3-a456-426614174002.pdf";
+    const scientificWork = "123e4567-e89b-42d3-a456-426614174000/trabalhos/123e4567-e89b-42d3-a456-426614174001/123e4567-e89b-42d3-a456-426614174002.pdf";
     expect(isValidPrivateStorageKey(good)).toBe(true);
+    expect(isValidPrivateStorageKey(certificate)).toBe(true);
+    expect(isValidPrivateStorageKey(scientificWork)).toBe(true);
     expect(isValidPrivateStorageKey("../../secret.png")).toBe(false);
+    expect(isValidPrivateStorageKey("123e4567-e89b-42d3-a456-426614174000/certificados/../certificate.pdf")).toBe(false);
     expect(isValidPrivateStorageKey("123e4567-e89b-42d3-a456-426614174000/assets/banner/../../secret.png")).toBe(false);
     expect(resolvePrivateStorageKey("C:/private", good)).toContain("private");
     expect(() => resolvePrivateStorageKey("C:/private", "../../secret.png")).toThrow("Invalid private storage key");

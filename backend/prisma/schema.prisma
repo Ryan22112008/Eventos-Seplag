@@ -52,6 +52,17 @@ enum StatusTrabalhoCientifico {
   REJEITADO
 }
 
+enum ResultadoAvaliacaoTrabalho {
+  APROVADO
+  REJEITADO
+}
+
+enum SituacaoParticipacao {
+  EM_ANDAMENTO
+  CONCLUIDO
+  NAO_CONCLUIDO
+}
+
 model Usuario {
   id                      String                   @id @default(uuid()) @db.Char(36)
   nome                    String                   @db.VarChar(160)
@@ -69,7 +80,10 @@ model Usuario {
   presencasAlteradas      Presenca[]               @relation("PresencaAlterador")
   trabalhosComoAutor      TrabalhoCientifico[]     @relation("TrabalhoAutor")
   trabalhosComoAvaliador  TrabalhoCientifico[]     @relation("TrabalhoAvaliador")
+  avaliacoesTrabalhos     AvaliacaoTrabalho[]
+  participacoesConsolidadas ConclusaoParticipante[]
   sessoesAutenticacao     SessaoAutenticacao[]
+  tokensRecuperacaoSenha TokenRecuperacaoSenha[]
 
   @@index([perfil])
   @@index([ativo])
@@ -116,6 +130,8 @@ model Evento {
   presencaFinalizada       Boolean             @default(false) @map("presenca_finalizada")
   percentualMinimoPresenca Decimal             @default(75.00) @map("percentual_minimo_presenca") @db.Decimal(5, 2)
   aceitaSubmissaoTrabalhos Boolean             @default(false) @map("aceita_submissao_trabalhos")
+  inicioSubmissaoTrabalhos DateTime?           @map("inicio_submissao_trabalhos") @db.DateTime(3)
+  fimSubmissaoTrabalhos    DateTime?           @map("fim_submissao_trabalhos") @db.DateTime(3)
   organizadorId            String              @map("organizador_id") @db.Char(36)
   createdAt                DateTime            @default(now()) @map("created_at") @db.DateTime(3)
   updatedAt                DateTime            @updatedAt @map("updated_at") @db.DateTime(3)
@@ -124,6 +140,7 @@ model Evento {
   sessoes                  Sessao[]
   inscricoes               Inscricao[]
   trabalhos                TrabalhoCientifico[]
+  participacoesConsolidadas ConclusaoParticipante[]
 
   @@index([status, dataInicio])
   @@index([dataInicio, dataTermino])
@@ -214,12 +231,29 @@ model TrabalhoCientifico {
   autor       Usuario                 @relation("TrabalhoAutor", fields: [autorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   evento      Evento                  @relation(fields: [eventoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   avaliador   Usuario?                @relation("TrabalhoAvaliador", fields: [avaliadorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  avaliacao   AvaliacaoTrabalho?
 
   @@index([autorId])
   @@index([eventoId, status])
   @@index([avaliadorId, status])
   @@index([status, createdAt])
   @@map("trabalhos_cientificos")
+}
+
+model AvaliacaoTrabalho {
+  id          String                     @id @default(uuid()) @db.Char(36)
+  trabalhoId  String                     @unique @map("trabalho_id") @db.Char(36)
+  avaliadorId String                     @map("avaliador_id") @db.Char(36)
+  resultado   ResultadoAvaliacaoTrabalho
+  parecer     String                     @db.Text
+  avaliadoEm  DateTime                   @map("avaliado_em") @db.DateTime(3)
+  createdAt   DateTime                   @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt   DateTime                   @updatedAt @map("updated_at") @db.DateTime(3)
+  trabalho    TrabalhoCientifico         @relation(fields: [trabalhoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  avaliador   Usuario                    @relation(fields: [avaliadorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([avaliadorId, avaliadoEm])
+  @@map("avaliacoes_trabalhos")
 }
 
 model SessaoAutenticacao {
@@ -234,4 +268,52 @@ model SessaoAutenticacao {
   @@index([usuarioId])
   @@index([expiresAt])
   @@map("sessoes_autenticacao")
+}
+
+model TokenRecuperacaoSenha {
+  id         String   @id @default(uuid()) @db.Char(36)
+  tokenHash  String   @unique @map("token_hash") @db.Char(64)
+  usuarioId  String   @map("usuario_id") @db.Char(36)
+  expiresAt  DateTime @map("expires_at") @db.DateTime(3)
+  createdAt  DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.DateTime(3)
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([usuarioId, expiresAt])
+  @@map("tokens_recuperacao_senha")
+}
+
+model ConclusaoParticipante {
+  id                    String                @id @default(uuid()) @db.Char(36)
+  participanteId        String                @map("participante_id") @db.Char(36)
+  eventoId              String                @map("evento_id") @db.Char(36)
+  sessoesTotais         Int                   @map("sessoes_totais")
+  sessoesPresentes      Int                   @map("sessoes_presentes")
+  percentualFrequencia  Decimal               @map("percentual_frequencia") @db.Decimal(5, 2)
+  situacao              SituacaoParticipacao
+  consolidadoEm         DateTime              @map("consolidado_em") @db.DateTime(3)
+  createdAt             DateTime              @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt             DateTime              @updatedAt @map("updated_at") @db.DateTime(3)
+  participante          Usuario               @relation(fields: [participanteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  evento                Evento                @relation(fields: [eventoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  certificado           Certificado?
+
+  @@unique([participanteId, eventoId])
+  @@index([eventoId, situacao])
+  @@index([participanteId, situacao])
+  @@map("conclusoes_participantes")
+}
+
+model Certificado {
+  id           String                @id @default(uuid()) @db.Char(36)
+  codigo       String                @unique @default(uuid()) @db.Char(36)
+  conclusaoId  String                @unique @map("conclusao_id") @db.Char(36)
+  arquivoPdf   String                @map("arquivo_pdf") @db.VarChar(512)
+  emitidoEm    DateTime              @map("emitido_em") @db.DateTime(3)
+  createdAt    DateTime              @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt    DateTime              @updatedAt @map("updated_at") @db.DateTime(3)
+  conclusao    ConclusaoParticipante @relation(fields: [conclusaoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([emitidoEm])
+  @@map("certificados")
 }

@@ -30,12 +30,17 @@ export default async function EditEventPage({ params, searchParams }: { params: 
     latitude: event.latitude?.toString() ?? "", longitude: event.longitude?.toString() ?? "", modalidade: event.modalidade,
     nicho: event.nicho, vagasTotais: event.vagasTotais, cargaHoraria: event.cargaHoraria.toString(),
     percentualMinimoPresenca: event.percentualMinimoPresenca.toString(), aceitaSubmissaoTrabalhos: event.aceitaSubmissaoTrabalhos,
+    inicioSubmissaoTrabalhos: event.inicioSubmissaoTrabalhos ? toLocalDateTime(event.inicioSubmissaoTrabalhos) : "",
+    fimSubmissaoTrabalhos: event.fimSubmissaoTrabalhos ? toLocalDateTime(event.fimSubmissaoTrabalhos) : "",
   };
   return <main className="mx-auto min-h-screen max-w-5xl px-6 py-10">
     <Link href="/organizador/eventos" className="text-sm text-blue-800 hover:underline">← Meus eventos</Link>
     <header className="my-7 flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-semibold uppercase tracking-wide text-blue-800">Evento</p><h1 className="mt-1 text-3xl font-bold">{event.titulo}</h1><p className="mt-2 text-slate-600">Status: <strong>{statusLabels[event.status]}</strong></p></div>
       <div className="flex flex-wrap gap-2">{event.status === "RASCUNHO" && <TransitionForm eventId={id} status="PUBLICADO" label="Publicar" />}{(event.status === "RASCUNHO" || event.status === "PUBLICADO") && <TransitionForm eventId={id} status="CANCELADO" label="Cancelar evento" />}{event.status === "PUBLICADO" && <TransitionForm eventId={id} status="ENCERRADO" label="Encerrar" />}{event.status === "RASCUNHO" && <form action={deleteEventAction}><input type="hidden" name="eventoId" value={id} /><button className="rounded-md border border-red-300 px-3 py-2 text-sm text-red-800">Excluir rascunho</button></form>}</div>
     </header>
+    <Link href={`/organizador/eventos/${id}/frequencia`} className="inline-block rounded-md border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-900 hover:bg-blue-50">Acompanhar frequência e certificados</Link>
+    <Link href={`/organizador/eventos/${id}/metricas`} className="ml-2 inline-block rounded-md border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-900 hover:bg-blue-50">Ver métricas</Link>
+    {event.aceitaSubmissaoTrabalhos && <Link href={`/organizador/eventos/${id}/trabalhos`} className="ml-2 inline-block rounded-md border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-900 hover:bg-blue-50">Gerenciar trabalhos</Link>}
     {query.erro && <p role="alert" className="mb-5 rounded-md bg-red-50 p-3 text-red-800">Não foi possível concluir a operação. Confira os dados, o status e suas permissões.</p>}
     {query.salvo && <p role="status" className="mb-5 rounded-md bg-green-50 p-3 text-green-800">Alteração salva.</p>}
     <section><h2 className="mb-4 text-xl font-semibold">Dados do evento</h2>{editable ? <EventForm action={updateEventAction} submitLabel="Salvar alterações" eventoId={id} initial={eventInitial} /> : <p className="rounded-md bg-amber-50 p-4 text-amber-900">Eventos cancelados ou encerrados permanecem somente para consulta.</p>}</section>

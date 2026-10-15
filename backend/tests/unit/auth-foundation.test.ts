@@ -34,7 +34,7 @@ describe("política de autorização", () => {
   it("mapeia perfil para a própria área e limita acesso a papéis explícitos", () => {
     expect(areaInicialDoPerfil("PARTICIPANTE")).toBe("/participante");
     expect(areaInicialDoPerfil("ORGANIZADOR")).toBe("/organizador");
-    expect(areaInicialDoPerfil("AVALIADOR")).toBe("/");
+    expect(areaInicialDoPerfil("AVALIADOR")).toBe("/avaliador/trabalhos");
     expect(podeAcessarPerfil("PARTICIPANTE", ["ADMIN"])).toBe(false);
     expect(podeAcessarPerfil("ORGANIZADOR", ["ADMIN"])).toBe(false);
     expect(podeAcessarPerfil("ADMIN", ["ADMIN"])).toBe(true);

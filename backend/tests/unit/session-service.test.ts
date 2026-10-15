@@ -27,12 +27,12 @@ describe("sessões persistidas", () => {
     expect(mocks.set.mock.calls[0][2]).toMatchObject({ httpOnly: true, sameSite: "lax", path: "/", maxAge: 604800 });
   });
 
-  it("recupera somente usuário ativo e invalida sessão inativa", async () => {
+  it("recusa sessão de usuário inativo sem mutar estado durante a leitura", async () => {
     mocks.get.mockReturnValue({ value: "cookie-token" });
     mocks.findUnique.mockResolvedValue({ id: "session-1", expiresAt: new Date(Date.now() + 60_000), usuario: { id: "u1", ativo: false } });
     expect(await getCurrentUser()).toBeNull();
     expect(mocks.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { tokenHash: hashSessionToken("cookie-token") } }));
-    expect(mocks.deleteMany).toHaveBeenCalledWith({ where: { id: "session-1" } });
+    expect(mocks.deleteMany).not.toHaveBeenCalled();
   });
 
   it("logout revoga o registro e remove o cookie", async () => {

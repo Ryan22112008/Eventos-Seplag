@@ -5,7 +5,7 @@ import { dirname, resolve } from "node:path";
 import type { StorageObject, StorageService } from "./storage-service";
 import { resolvePrivateStorageKey } from "./storage-key";
 
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_PRIVATE_OBJECT_BYTES = 15 * 1024 * 1024;
 
 export class LocalStorageService implements StorageService {
   private readonly root: string;
@@ -16,9 +16,10 @@ export class LocalStorageService implements StorageService {
 
   async put(key: string, data: Buffer, contentType: StorageObject["contentType"]): Promise<void> {
     const target = this.resolveKey(key);
-    if (data.byteLength > MAX_IMAGE_BYTES) throw new Error("Storage object exceeds the configured limit.");
-    const extensionType = key.endsWith(".png") ? "image/png" : "image/jpeg";
+    if (data.byteLength > MAX_PRIVATE_OBJECT_BYTES) throw new Error("Storage object exceeds the configured limit.");
+    const extensionType = key.endsWith(".png") ? "image/png" : key.endsWith(".pdf") ? "application/pdf" : "image/jpeg";
     if (extensionType !== contentType) throw new Error("Storage content type does not match the object key.");
+    if (contentType === "application/pdf" && data.subarray(0, 5).toString("ascii") !== "%PDF-") throw new Error("Storage object is not a PDF.");
     await mkdir(dirname(target), { recursive: true, mode: 0o700 });
     await writeFile(target, data, { flag: "wx", mode: 0o600 });
   }
@@ -27,7 +28,7 @@ export class LocalStorageService implements StorageService {
     const target = this.resolveKey(key);
     try {
       const data = await readFile(target);
-      return { data, contentType: key.endsWith(".png") ? "image/png" : "image/jpeg" };
+      return { data, contentType: key.endsWith(".png") ? "image/png" : key.endsWith(".pdf") ? "application/pdf" : "image/jpeg" };
     } catch (error) {
       if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") return null;
       throw error;

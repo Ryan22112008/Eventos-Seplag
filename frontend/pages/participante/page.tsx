@@ -32,7 +32,9 @@ export default async function ParticipantPage({ searchParams }: { searchParams: 
     <section className="py-10">
       <h1 className="text-3xl font-bold">Área do participante</h1>
       {query.cadastro === "ok" && <p className="mt-4 rounded-md bg-green-50 p-3 text-green-900" role="status">Conta criada. Você está conectado.</p>}
-      <p className="mt-4 text-slate-600">Sua conta e seu perfil estão ativos. As próximas etapas adicionarão recursos para participantes.</p>
+      <p className="mt-4 text-slate-600">Acompanhe suas inscrições, presenças, frequência e certificados.</p>
+      <Link href="/participante/certificados" className="mt-3 inline-block font-medium text-blue-800 underline">Ver frequência e certificados</Link>
+      <Link href="/participante/trabalhos" className="ml-4 mt-3 inline-block font-medium text-blue-800 underline">Meus trabalhos científicos</Link>
       <section className="mt-8 rounded-xl border border-slate-200 bg-white p-6">
         <h2 className="text-xl font-semibold">Minhas inscrições</h2>
         {query.inscricao === "cancelada" && <p className="mt-3 rounded-md bg-green-50 p-3 text-green-900" role="status">Inscrição cancelada. A vaga foi devolvida.</p>}

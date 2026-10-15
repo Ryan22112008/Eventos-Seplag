@@ -6,6 +6,7 @@ const optionalCoordinate = z.preprocess(
   (value) => value === "" || value === undefined ? null : value,
   z.coerce.number().finite().nullable(),
 );
+const optionalDate = z.preprocess((value) => value === "" || value === undefined ? null : value, z.coerce.date().nullable());
 
 export const eventInputSchema = z.object({
   titulo: z.string().trim().min(1).max(240),
@@ -26,8 +27,21 @@ export const eventInputSchema = z.object({
   cargaHoraria: requiredNumber.pipe(z.number().positive().max(10_000)),
   percentualMinimoPresenca: requiredNumber.pipe(z.number().min(0).max(100)),
   aceitaSubmissaoTrabalhos: z.boolean(),
+  inicioSubmissaoTrabalhos: optionalDate,
+  fimSubmissaoTrabalhos: optionalDate,
 }).refine((data) => data.dataTermino > data.dataInicio, {
   path: ["dataTermino"], message: "O término deve ser posterior ao início.",
+}).refine((data) => {
+  if (!data.aceitaSubmissaoTrabalhos) return true;
+  return data.inicioSubmissaoTrabalhos !== null && data.fimSubmissaoTrabalhos !== null
+    && data.fimSubmissaoTrabalhos > data.inicioSubmissaoTrabalhos;
+}, {
+  path: ["fimSubmissaoTrabalhos"], message: "Informe um período válido para submissão de trabalhos.",
+}).refine((data) => {
+  return (data.inicioSubmissaoTrabalhos === null) === (data.fimSubmissaoTrabalhos === null)
+    && (!data.inicioSubmissaoTrabalhos || !data.fimSubmissaoTrabalhos || data.fimSubmissaoTrabalhos > data.inicioSubmissaoTrabalhos);
+}, {
+  path: ["fimSubmissaoTrabalhos"], message: "Informe as duas datas e um período de submissão válido.",
 });
 
 export const eventIdSchema = z.uuid();

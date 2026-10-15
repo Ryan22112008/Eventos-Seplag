@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const protectedPrefixes = ["/participante", "/organizador", "/admin"];
+const protectedPrefixes = ["/participante", "/organizador", "/admin", "/avaliador"];
 
 export function middleware(request: NextRequest) {
   const nonce = btoa(crypto.randomUUID());

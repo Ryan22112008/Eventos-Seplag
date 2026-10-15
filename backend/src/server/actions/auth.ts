@@ -10,6 +10,7 @@ import { cadastroSchema, loginSchema, solicitacaoOrganizadorSchema } from "@back
 import { createSession, destroyCurrentSession } from "@backend/auth/session";
 import { requireRole } from "@backend/auth/access";
 import { consumeRateLimit, resetRateLimit } from "@backend/auth/rate-limit";
+import { applicationLink, sendEmail, sendEmailToActiveAdmins } from "@backend/lib/email/email-service";
 
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 
@@ -44,6 +45,8 @@ export async function registerAction(formData: FormData): Promise<void> {
     throw error;
   }
   await createSession(user.id);
+  await sendEmail(user.email, { subject: "Cadastro recebido", title: "Sua conta foi criada", paragraphs: [`Olá, ${user.nome}. Seu cadastro na plataforma foi concluído. O e-mail é uma notificação e não altera o processo de autenticação.`], link: applicationLink("/login", "Acessar a plataforma") });
+  if (parsed.data.queroSerOrganizador) await sendEmailToActiveAdmins({ subject: "Nova solicitação de organizador", title: "Solicitação para organizar eventos", paragraphs: [`${user.nome} (${user.email}) enviou uma solicitação que aguarda decisão administrativa.`], link: applicationLink("/admin/solicitacoes-organizador", "Revisar solicitações") });
   resetRateLimit(key);
   redirect("/participante?cadastro=ok");
 }
@@ -81,8 +84,10 @@ export async function logoutAction(): Promise<void> {
 
 export async function requestOrganizerAction(formData: FormData): Promise<void> {
   const user = await requireRole("PARTICIPANTE");
+  if (!consumeRateLimit(`organizer-request:${user.id}`, { limit: 3, windowMs: 60 * 60_000 }).allowed) redirect("/participante?solicitacao=rate");
   const parsed = solicitacaoOrganizadorSchema.safeParse({ intent: formData.get("intent") });
   if (!parsed.success) redirect("/participante?solicitacao=erro");
   const result = await requestOrganizerRole(user.id);
+  if (result === "created") await sendEmailToActiveAdmins({ subject: "Nova solicitação de organizador", title: "Solicitação para organizar eventos", paragraphs: [`${user.nome} (${user.email}) enviou uma solicitação que aguarda decisão administrativa.`], link: applicationLink("/admin/solicitacoes-organizador", "Revisar solicitações") });
   redirect(`/participante?solicitacao=${result}`);
 }

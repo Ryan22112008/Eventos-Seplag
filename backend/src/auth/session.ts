@@ -36,7 +36,6 @@ export async function getCurrentUser() {
   });
   if (!session) return null;
   if (session.expiresAt <= new Date() || !session.usuario.ativo) {
-    await prisma.sessaoAutenticacao.deleteMany({ where: { id: session.id } });
     return null;
   }
   return session.usuario;

@@ -21,6 +21,8 @@ export function EventForm({ action, submitLabel, eventoId, initial = {} }: Props
     <label className="grid gap-1 text-sm font-medium">Carga horária<input required type="number" min="0.01" step="0.01" name="cargaHoraria" defaultValue={value("cargaHoraria")} className="rounded-md border p-2" /></label>
     <label className="grid gap-1 text-sm font-medium">Presença mínima (%)<input required type="number" min="0" max="100" step="0.01" name="percentualMinimoPresenca" defaultValue={value("percentualMinimoPresenca", "75")} className="rounded-md border p-2" /></label>
     <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="aceitaSubmissaoTrabalhos" defaultChecked={Boolean(initial.aceitaSubmissaoTrabalhos)} /> Aceita submissão de trabalhos</label>
+    <label className="grid gap-1 text-sm font-medium">Início das submissões<input type="datetime-local" name="inicioSubmissaoTrabalhos" defaultValue={value("inicioSubmissaoTrabalhos")} className="rounded-md border p-2" /></label>
+    <label className="grid gap-1 text-sm font-medium">Fim das submissões<input type="datetime-local" name="fimSubmissaoTrabalhos" defaultValue={value("fimSubmissaoTrabalhos")} className="rounded-md border p-2" /></label>
     <div className="md:col-span-2"><button className="rounded-md bg-blue-800 px-5 py-2.5 font-semibold text-white hover:bg-blue-900">{submitLabel}</button></div>
   </form>;
 }

@@ -17,7 +17,7 @@ export default async function PublicEventDetailPage({ params, searchParams }: { 
     ? `https://www.google.com/maps?q=${encodeURIComponent(`${event.latitude},${event.longitude}`)}&output=embed`
     : event.urlGoogleMaps;
   return <main className="mx-auto min-h-screen max-w-5xl px-5 py-10 sm:px-8">
-    <Link href="/eventos" className="text-sm font-medium text-blue-800 hover:underline">← Todos os eventos</Link>
+    <header className="public-page-header"><Link href="/" className="public-brand" aria-label="Página inicial Eventos SEPLAG"><Image src="/logo-seplag-branco.png" alt="SEPLAG" width={487} height={541} className="seplag-logo" priority /><span>Eventos</span></Link><Link href="/eventos" className="text-sm font-medium text-blue-800 hover:underline">← Todos os eventos</Link></header>
     {event.banner && <Image src={`/api/public/eventos/${id}/banner`} alt="" width={1920} height={900} className="mt-6 max-h-[28rem] w-full rounded-xl object-cover" />}
     <section className="py-8"><p className="font-medium text-blue-800">{event.nicho} · {event.modalidade.toLowerCase()}</p><h1 className="mt-2 text-4xl font-bold">{event.titulo}</h1><p className="mt-5 whitespace-pre-wrap leading-7 text-slate-700">{event.descricao}</p>
       {feedback && <p className="mt-5 rounded-md bg-blue-50 p-4 text-blue-950" role="status">{feedback}</p>}

@@ -1,14 +1,48 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function HomePage() {
-  return <main className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-6 py-20">
-    <p className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-blue-800">SEPLAG</p>
-    <h1 className="max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl">Plataforma institucional de eventos</h1>
-    <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">Fundação institucional para cursos, workshops, congressos e eventos.</p>
-    <nav className="mt-8 flex gap-4" aria-label="Acesso à plataforma">
-      <Link className="rounded-md bg-blue-800 px-5 py-3 font-medium text-white hover:bg-blue-900" href="/login">Entrar</Link>
-      <Link className="rounded-md border border-slate-300 px-5 py-3 font-medium hover:bg-slate-100" href="/cadastro">Criar conta</Link>
-      <Link className="rounded-md border border-blue-200 px-5 py-3 font-medium text-blue-900 hover:bg-blue-50" href="/eventos">Ver eventos</Link>
-    </nav>
+  return <main className="public-home">
+    <header className="public-header">
+      <Link href="/" className="public-brand" aria-label="Eventos SEPLAG, página inicial">
+        <Image src="/logo-seplag-branco.png" alt="SEPLAG" width={487} height={541} className="seplag-logo" priority />
+        <span>Eventos</span>
+      </Link>
+      <nav aria-label="Navegação principal">
+        <Link href="/eventos">Eventos</Link>
+        <Link href="/login">Entrar</Link>
+        <Link href="/cadastro" className="button-primary">Criar conta</Link>
+      </nav>
+    </header>
+
+    <section className="home-hero" aria-labelledby="home-title">
+      <div className="home-hero-content">
+        <p className="eyebrow">Plataforma institucional</p>
+        <h1 id="home-title">Eventos que ampliam conhecimento e colaboração.</h1>
+        <p className="home-lede">Um espaço para cursos, workshops, congressos e eventos institucionais.</p>
+        <div className="home-actions">
+          <Link className="button-primary" href="/eventos">Explorar eventos <span aria-hidden="true">→</span></Link>
+          <Link className="button-secondary" href="/cadastro">Criar conta</Link>
+        </div>
+      </div>
+      <div className="home-hero-note" aria-label="Acesso à plataforma">
+        <span className="home-note-index">SEPLAG</span>
+        <p>Informação, formação e encontros em um só lugar.</p>
+      </div>
+    </section>
+
+    <section className="home-events" aria-labelledby="events-title">
+      <div>
+        <p className="eyebrow">Agenda aberta</p>
+        <h2 id="events-title">Encontre seu próximo evento</h2>
+        <p>Consulte a programação disponível e encontre atividades por tema, cidade e modalidade.</p>
+      </div>
+      <Link className="text-link" href="/eventos">Ver todos os eventos <span aria-hidden="true">→</span></Link>
+    </section>
+
+    <footer className="public-footer">
+      <span>Eventos SEPLAG</span>
+      <nav aria-label="Links institucionais"><Link href="/eventos">Eventos</Link><Link href="/login">Acessar conta</Link></nav>
+    </footer>
   </main>;
 }

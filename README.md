@@ -28,7 +28,7 @@ Defina `DATABASE_URL` no `.env`. Com o MySQL local do Compose:
 mysql://eventos:eventos_local@localhost:3306/eventos
 ```
 
-Os valores do Compose são somente para desenvolvimento local. Nunca use essa credencial em produção. As variáveis `SEED_ADMIN_*` são necessárias apenas para criar o primeiro administrador usando `npm run db:seed`.
+Os valores do Compose são somente para desenvolvimento local. Nunca use essa credencial em produção. As variáveis `SEED_ADMIN_*` são necessárias apenas para criar o primeiro administrador usando `npm run db:seed`. A emissão de certificados exige `CERTIFICATE_INSTITUTION_NAME` e `CERTIFICATE_TEXT`; `CERTIFICATE_LOGO_PATH` é opcional. Esses dados ficam na configuração do servidor para não incluir identificação institucional fictícia nos PDFs. O texto aceita `{{participante}}`, `{{evento}}` e `{{cargaHoraria}}`.
 
 ## Banco e migrations
 
@@ -55,7 +55,7 @@ Em `/organizador/eventos`, um organizador cria, consulta e edita seus eventos. E
 
 Disciplinas e sessões podem ser criadas, editadas e removidas dentro da página do evento. Sessões precisam ficar dentro do período do evento; sessões com presenças não podem ser editadas/removidas.
 
-Banner e artes do certificado aceitam PNG/JPEG até 5 MB. O aplicativo confere a assinatura binária, MIME informado e extensão; rejeita SVG e PDFs. Os arquivos são gravados fora de `public` em `PRIVATE_STORAGE_DIR` (padrão: diretório privado temporário do sistema) com permissão restrita. As rotas de leitura autenticam e verificam a propriedade do evento antes de devolver bytes com `Cache-Control: private, no-store`. Em produção, configure um volume privado persistente e protegido; a interface `StorageService` permite trocar a implementação por storage compatível com objeto sem publicar arquivos.
+Banner e artes do certificado aceitam PNG/JPEG até 5 MB. O aplicativo confere a assinatura binária, MIME informado e extensão; rejeita SVG e PDFs enviados como arte. Os arquivos são gravados fora de `public` em `PRIVATE_STORAGE_DIR` (padrão: diretório privado temporário do sistema) com permissão restrita. PDFs emitidos também ficam nesse storage privado; o download exige sessão do dono do certificado. Em produção, configure um volume privado persistente e protegido; a interface `StorageService` permite trocar a implementação por storage compatível com objeto sem publicar arquivos.
 
 ## Vitrine pública e inscrições
 
@@ -71,6 +71,36 @@ O participante autenticado pode abrir `/participante/inscricoes/[id]/ingresso`; 
 
 Na tela de check-in de uma sessão do evento, o organizador dono (ou ADMIN) pode gerar/rotacionar o QR, que expira em dois minutos. O QR puro não é persistido; somente o hash é salvo em `sessoes.token_qr_hash`, e a rotação invalida o token anterior. A página mostra a contagem e a lista de inscritos ativos com presença por sessão. O navegador requer permissão de câmera e contexto seguro (HTTPS; `localhost` é tratado como seguro pelos navegadores modernos).
 
+## Frequência e certificados
+
+`/organizador/eventos/[id]/frequencia` mostra o cálculo por participante e permite consolidar quando o evento está `ENCERRADO`, sua data final passou e todas as sessões terminaram. Como o modelo não separa sessões obrigatórias/opcionais, todas as sessões cadastradas contam no denominador. Conta-se somente presença `PRESENTE`; inscrições canceladas ficam fora. O limite é o campo já existente `percentualMinimoPresenca`, validado e comparado sem arredondamento da taxa exibida. A carga horária vem de `Evento.cargaHoraria`, armazenada pelo organizador.
+
+A consolidação transacional salva um snapshot por participante, marca `Evento.presencaFinalizada` e emite no máximo um certificado para cada participante elegível. Repetir a ação retorna os resultados existentes sem recriar PDFs. Os arquivos são gravados fora de `public`; falhas na transação removem os PDFs temporários escritos. Após consolidado, o resultado é histórico. O participante acompanha em `/participante/certificados` e baixa apenas seus PDFs. O QR aponta para `/certificados/validar/[codigo]`, rota pública que retorna somente dados necessários à conferência; o código é um UUID aleatório e o arquivo não é exposto nessa página.
+
+A primeira emissão de certificados exige nome institucional e texto de certificação configurados no servidor. O texto pode usar `{{participante}}`, `{{evento}}` e `{{cargaHoraria}}`; o logo pode ser informado como caminho local PNG/JPEG. Não há nome, marca ou texto institucional oficial fixado no código. A geração usa PDFKit e o QR já existente no projeto.
+
+Na consolidação nova, participantes elegíveis também recebem um aviso de disponibilidade. O PDF permanece somente no storage privado e não é anexado.
+
+## Trabalhos científicos e avaliação
+
+O organizador configura no evento o início e o fim do período de submissão. A opção de aceitar trabalhos só pode ser salva com as duas datas preenchidas e ordenadas. O serviço confere no MySQL que o evento está publicado, a janela está aberta e o participante tem inscrição ativa. O arquivo aceito é somente PDF, com MIME declarado `application/pdf`, extensão `.pdf`, cabeçalho PDF e marcador final `%%EOF`; o limite é 10 MB. Os arquivos ficam no storage privado e downloads passam por uma rota que verifica autor, organizador do evento ou avaliador atribuído.
+
+Cada trabalho pode ser atribuído a um único avaliador ativo pelo organizador responsável ou por ADMIN. A atribuição move o estado para `EM_AVALIACAO`. O avaliador atribuído registra um parecer e decide `APROVADO` ou `REJEITADO` uma única vez; o parecer, o avaliador e a data ficam preservados em `avaliacoes_trabalhos`. A restrição única por trabalho e a transação impedem avaliações duplicadas. Participantes veem somente seus próprios trabalhos e pareceres finais.
+
+## E-mails e recuperação de senha
+
+O serviço substituível `EmailService` usa Nodemailer e as variáveis `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` e `SMTP_SECURE`. Se o SMTP não estiver configurado ou estiver indisponível, a operação de cadastro, decisão, inscrição, cancelamento, submissão, avaliação ou consolidação já concluída permanece válida; a falha é registrada no servidor sem incluir destinatário, conteúdo, token ou credencial. Configure `APP_URL` com a origem pública correta para links. O nome institucional usa `CERTIFICATE_INSTITUTION_NAME`, já utilizado nos certificados. Sem SMTP, os e-mails não são entregues.
+
+O cadastro envia uma notificação, sem validação obrigatória do endereço. Solicitações de organizador notificam ADMINs ativos; a decisão envia aprovação/rejeição ao solicitante. Inscrição e cancelamento, submissão e resultado de trabalho e emissão de certificado também notificam o participante. O download do certificado continua autenticado e não é anexado ao e-mail.
+
+Em `/recuperar-senha`, o sistema sempre mostra uma resposta genérica. Para contas ativas, cria um token aleatório de 256 bits, conserva somente seu SHA-256 em `tokens_recuperacao_senha`, expira-o em 30 minutos e envia o link por e-mail. A troca usa Argon2, consome o token uma vez, invalida outros tokens e revoga as sessões existentes. É necessário SMTP e `APP_URL` para entregar o link. A migration `20261017000000_password_recovery_tokens` cria a tabela, sem alterar migrations anteriores.
+
+## Métricas por evento
+
+Organizador (somente dono do evento) e ADMIN podem abrir `/organizador/eventos/[id]/metricas`. A autorização e a consulta são feitas no servidor. Inscrições incluem todos os estados; ativas e canceladas são contagens separadas. Ocupação é inscrições ativas divididas pela capacidade total; presença é participantes elegíveis com ao menos uma presença `PRESENTE` dividida pelas inscrições não canceladas elegíveis à frequência; conclusão é participantes concluídos divididos pelo total elegível da frequência. Taxas sem denominador são mostradas como indisponíveis. Trabalhos submetidos (total) soma todos os estados; “aguardando atribuição” conta `SUBMETIDO`, “em avaliação” conta `EM_AVALIACAO`, e aprovados/rejeitados contam os estados finais. Certificados contam registros emitidos. A frequência usa o snapshot após consolidação e o cálculo existente antes dela.
+
+A migration `20261016000000_scientific_work_evaluations` adiciona a janela ao evento e o registro de avaliação. Execute `npm run db:deploy` após `npm run db:generate` em uma máquina com MySQL acessível. Os testes de integração MySQL requerem `TEST_DATABASE_URL` em uma base isolada; `npm test` executa validações unitárias sem banco.
+
 ## Decisões de segurança e limites
 
 - Senhas são transformadas em hash Argon2. Cadastros públicos definem `PARTICIPANTE` no servidor.
@@ -78,6 +108,8 @@ Na tela de check-in de uma sessão do evento, o organizador dono (ou ADMIN) pode
 - As operações mutáveis usam Server Actions POST. O endpoint multipart exige origem igual à origem da aplicação e valida o papel/propriedade antes de ler o corpo. O Next.js valida a origem das Server Actions por padrão; junto com `SameSite=Lax`, isso reduz requisições CSRF cross-site. Configure proxy e domínio corretamente; isso não protege contra XSS ou comprometimento da própria origem.
 - O CSP usa nonce gerado por requisição pelo middleware e é enviado à renderização do Next.js. `unsafe-eval` só é incluído em desenvolvimento para ferramentas de desenvolvimento. Os demais cabeçalhos incluem `nosniff`, política de referrer, bloqueio de frame e restrição de permissões.
 - O rate limit de login e cadastro é em memória, por endereço encaminhado pela infraestrutura, com janelas locais. Em produção com várias instâncias é necessário substituir o armazenamento por Redis ou serviço distribuído e configurar o proxy para sobrescrever `x-real-ip`/`x-forwarded-for`; cabeçalhos encaminhados diretamente pelo cliente não são identidade confiável.
+- Recuperação, solicitação de organizador, inscrição/cancelamento e operações administrativas sensíveis reutilizam o mesmo limitador em memória, com chaves por endereço ou usuário. Essa proteção não é compartilhada entre instâncias.
+- Leituras de sessão expirada agora apenas recusam a sessão; não apagam registros durante uma requisição GET. A invalidação persistente ocorre em logout, desativação ou troca da senha.
 - A aprovação usa atualização condicional do status pendente dentro de transação. Só a requisição que altera uma linha pode promover o participante; falhas na atualização do usuário revertem a transação.
 - Um ADMIN não pode desativar a própria conta nem o último ADMIN ativo. A checagem serializável protege alterações concorrentes; conflitos pedem nova tentativa.
 - Mudanças de status são condicionais ao status atual, evitando aplicar uma transição concorrente inválida. Exclusão de evento não usa cascade; a aplicação preserva registros relacionados e traduz violações de FK em erro de domínio.
@@ -94,6 +126,8 @@ npm run test:e2e
 ```
 
 Typecheck, lint e testes unitários não necessitam de conexão ao MySQL. `npm run test:integration` requer `TEST_DATABASE_URL` apontando para um banco MySQL exclusivo e descartável; o teste remove seus registros ao final de cada cenário, mas deve usar banco isolado. Migrations, seed e testes de integração precisam de MySQL acessível. Os testes unitários também validam query params e geração/verificação de tokens sem banco.
+
+Depois de instalar as dependências, aplique as migrations pendentes com `npm run db:deploy` em um MySQL acessível. Para desenvolver uma migration nova use `npm run db:migrate`. Para `npm run test:integration`, aplique as migrations em uma base exclusiva apontada por `TEST_DATABASE_URL`; sem ela, os testes de integração aparecem como ignorados.
 
 ## Produção
 

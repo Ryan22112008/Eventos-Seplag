@@ -1,13 +1,52 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { PerfilUsuario } from "@prisma/client";
 import { logoutAction } from "@backend/server/actions/auth";
+import { AccountNav } from "@frontend/components/account-nav";
+
+const roleLabels: Record<PerfilUsuario, string> = {
+  PARTICIPANTE: "Participante",
+  ORGANIZADOR: "Organizador",
+  ADMIN: "Administrador",
+  AVALIADOR: "Avaliador",
+};
+
+const navigation: Partial<Record<PerfilUsuario, { href: string; label: string }[]>> = {
+  PARTICIPANTE: [
+    { href: "/participante", label: "Início" },
+    { href: "/eventos", label: "Eventos" },
+    { href: "/participante/check-in", label: "Presenças" },
+    { href: "/participante/certificados", label: "Certificados" },
+    { href: "/participante/trabalhos", label: "Trabalhos" },
+  ],
+  ORGANIZADOR: [
+    { href: "/organizador", label: "Visão geral" },
+    { href: "/organizador/eventos", label: "Eventos" },
+  ],
+  ADMIN: [
+    { href: "/admin", label: "Visão geral" },
+    { href: "/admin/solicitacoes-organizador", label: "Organizadores" },
+    { href: "/admin/usuarios", label: "Usuários" },
+  ],
+  AVALIADOR: [
+    { href: "/avaliador/trabalhos", label: "Trabalhos atribuídos" },
+  ],
+};
 
 export function AccountHeader({ user }: { user: { nome: string; perfil: PerfilUsuario } }) {
-  return <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
-    <div>
-      <Link href="/" className="font-semibold text-blue-900">Eventos SEPLAG</Link>
-      <p className="mt-1 text-sm text-slate-600">{user.nome} · {user.perfil}</p>
+  const links = navigation[user.perfil] ?? [];
+  return <header className="account-header">
+    <div className="account-topline">
+      <Link href="/" className="account-brand" aria-label="Eventos SEPLAG, página inicial">
+        <Image src="/logo-seplag-branco.png" alt="SEPLAG" width={487} height={541} className="seplag-logo" priority />
+        <span>Eventos</span>
+      </Link>
+      <div className="account-user">
+        <span className="account-user-name">{user.nome}</span>
+        <span className="account-role">{roleLabels[user.perfil]}</span>
+        <form action={logoutAction}><button className="account-logout">Sair</button></form>
+      </div>
     </div>
-    <form action={logoutAction}><button className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100">Sair</button></form>
+    {links.length > 0 && <AccountNav links={links} />}
   </header>;
 }

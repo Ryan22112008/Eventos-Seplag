@@ -4,7 +4,7 @@ const areaPorPerfil: Record<PerfilUsuario, string> = {
   PARTICIPANTE: "/participante",
   ORGANIZADOR: "/organizador",
   ADMIN: "/admin",
-  AVALIADOR: "/",
+  AVALIADOR: "/avaliador/trabalhos",
 };
 
 export function areaInicialDoPerfil(perfil: PerfilUsuario): string {

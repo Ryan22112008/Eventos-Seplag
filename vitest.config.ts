@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: { alias: {
     "@backend": fileURLToPath(new URL("./backend/src", import.meta.url)),
     "@frontend": fileURLToPath(new URL("./frontend", import.meta.url)),
+    "server-only": fileURLToPath(new URL("./backend/tests/integration/server-only-stub.ts", import.meta.url)),
   } },
   test: { environment: "node", include: ["backend/tests/unit/**/*.test.ts"] },
 });

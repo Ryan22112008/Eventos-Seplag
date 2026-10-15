@@ -52,6 +52,8 @@ function eventData(input: EventInput) {
     cargaHoraria: new Prisma.Decimal(input.cargaHoraria),
     percentualMinimoPresenca: new Prisma.Decimal(input.percentualMinimoPresenca),
     aceitaSubmissaoTrabalhos: input.aceitaSubmissaoTrabalhos,
+    inicioSubmissaoTrabalhos: input.inicioSubmissaoTrabalhos,
+    fimSubmissaoTrabalhos: input.fimSubmissaoTrabalhos,
   };
 }
 

@@ -15,6 +15,7 @@ function eventFields(form: FormData) {
     latitude: value(form, "latitude"), longitude: value(form, "longitude"), modalidade: value(form, "modalidade"), nicho: value(form, "nicho"),
     vagasTotais: value(form, "vagasTotais"), cargaHoraria: value(form, "cargaHoraria"), percentualMinimoPresenca: value(form, "percentualMinimoPresenca"),
     aceitaSubmissaoTrabalhos: form.get("aceitaSubmissaoTrabalhos") === "on",
+    inicioSubmissaoTrabalhos: value(form, "inicioSubmissaoTrabalhos"), fimSubmissaoTrabalhos: value(form, "fimSubmissaoTrabalhos"),
   };
 }
 
