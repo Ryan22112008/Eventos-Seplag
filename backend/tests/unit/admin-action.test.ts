@@ -6,6 +6,9 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("@backend/auth/access", () => ({ requireAdmin: mocks.requireAdmin }));
 vi.mock("@backend/auth/admin-service", () => ({ decideOrganizerRequest: mocks.decide, setUserActive: mocks.setActive }));
+vi.mock("@backend/lib/prisma", () => ({
+  prisma: { solicitacaoOrganizador: { findUnique: vi.fn().mockResolvedValue(null) } },
+}));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 
 import { approveOrganizerAction, setUserActiveAction } from "../../src/server/actions/admin";

@@ -10,6 +10,8 @@ import { getCertificateSettings, renderCertificatePdf } from "./certificate-pdf"
 import { certificateCodeSchema, frequencyEventIdSchema } from "./certificate.schemas";
 import { getStorageService } from "@backend/lib/storage/local-storage-service";
 import type { StorageService } from "@backend/lib/storage/storage-service";
+import { isDevMockMode } from "@backend/lib/dev-mode";
+import { DEV_MOCK_PARTICIPANT, getParticipationSummaries } from "@backend/lib/dev-mock-data";
 
 type EventAccess = { id: string; titulo: string; organizadorId: string; status: StatusEvento; dataInicio: Date; dataTermino: Date; cargaHoraria: Prisma.Decimal; percentualMinimoPresenca: Prisma.Decimal; presencaFinalizada: boolean };
 type ParticipantResult = {
@@ -198,6 +200,9 @@ export async function consolidateEventParticipation(actor: AttendanceActor, even
 }
 
 export async function getOwnParticipationSummaries(actor: AttendanceActor, client: PrismaClient = prisma): Promise<ParticipantParticipationSummary[]> {
+  if (isDevMockMode()) {
+    return getParticipationSummaries(actor.id) as unknown as ParticipantParticipationSummary[];
+  }
   if (!actor.ativo || actor.perfil !== PerfilUsuario.PARTICIPANTE) throw new DomainError("FORBIDDEN");
   const registrations = await client.inscricao.findMany({
     where: { participanteId: actor.id }, orderBy: { createdAt: "desc" }, take: 100,
@@ -250,6 +255,24 @@ export async function getPublicCertificate(rawCode: string, client: PrismaClient
 }
 
 export async function getOwnCertificatePdf(actor: AttendanceActor, certificateId: string, client: PrismaClient = prisma, storage: StorageService = getStorageService()) {
+  if (isDevMockMode()) {
+    const { default: PDFDocument } = await import("pdfkit");
+    const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 52 });
+    const chunks: Buffer[] = [];
+    const completed = new Promise<Buffer>((resolve, reject) => {
+      doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+      doc.on("end", () => resolve(Buffer.concat(chunks)));
+      doc.on("error", reject);
+    });
+    doc.font("Helvetica-Bold").fontSize(20).text("CERTIFICADO DE DEMONSTRAÇÃO", { align: "center" });
+    doc.font("Helvetica").fontSize(11).fillColor("#475569").text("Documento demonstrativo — sem validade oficial ou jurídica.", { align: "center" });
+    doc.moveDown(1.5).font("Helvetica-Bold").fontSize(14).text("Certificamos que", { align: "center" });
+    doc.font("Helvetica-Bold").fontSize(18).fillColor("#1e3a5f").text(DEV_MOCK_PARTICIPANT.nome, { align: "center" });
+    doc.font("Helvetica").fontSize(12).fillColor("#334155").text("participou do evento de demonstração fictício, com carga horária de 24 horas e frequência de 87,50%.", { align: "center" });
+    doc.moveDown(1).font("Helvetica-Bold").fontSize(11).text("SEPLAG-MT — Ambiente de demonstração (dados fictícios)", { align: "center" });
+    doc.end();
+    return await completed;
+  }
   if (!actor.ativo || actor.perfil !== PerfilUsuario.PARTICIPANTE || !frequencyEventIdSchema.safeParse(certificateId).success) throw new DomainError("NOT_FOUND", "Certificado não encontrado.");
   const certificate = await client.certificado.findFirst({ where: { id: certificateId, conclusao: { participanteId: actor.id, situacao: SituacaoParticipacao.CONCLUIDO } }, select: { arquivoPdf: true } });
   if (!certificate) throw new DomainError("NOT_FOUND", "Certificado não encontrado.");

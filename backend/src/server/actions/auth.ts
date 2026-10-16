@@ -1,16 +1,14 @@
 "use server";
 
-import { Prisma } from "@prisma/client";
 import { verify } from "argon2";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { prisma } from "@backend/lib/prisma";
-import { registerAccount, requestOrganizerRole } from "@backend/auth/account-service";
 import { cadastroSchema, loginSchema, solicitacaoOrganizadorSchema } from "@backend/auth/schemas";
 import { createSession, destroyCurrentSession } from "@backend/auth/session";
 import { requireRole } from "@backend/auth/access";
 import { consumeRateLimit, resetRateLimit } from "@backend/auth/rate-limit";
 import { applicationLink, sendEmail, sendEmailToActiveAdmins } from "@backend/lib/email/email-service";
+import { isDevMockMode } from "@backend/lib/dev-mode";
 
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 
@@ -23,6 +21,7 @@ async function clientKey(scope: "login" | "cadastro") {
 }
 
 export async function registerAction(formData: FormData): Promise<void> {
+  if (isDevMockMode()) redirect("/login?erro=mock");
   const key = await clientKey("cadastro");
   if (!consumeRateLimit(key, { limit: 5, windowMs: RATE_WINDOW_MS }).allowed) redirect("/cadastro?erro=rate");
 
@@ -35,10 +34,12 @@ export async function registerAction(formData: FormData): Promise<void> {
   });
   if (!parsed.success) redirect("/cadastro?erro=invalid");
 
+  const { registerAccount } = await import("@backend/auth/account-service");
   let user: Awaited<ReturnType<typeof registerAccount>>;
   try {
     user = await registerAccount(parsed.data);
   } catch (error) {
+    const { Prisma } = await import("@prisma/client");
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       redirect("/cadastro?erro=unavailable");
     }
@@ -52,11 +53,13 @@ export async function registerAction(formData: FormData): Promise<void> {
 }
 
 export async function loginAction(formData: FormData): Promise<void> {
+  if (isDevMockMode()) redirect("/login?erro=mock");
   const key = await clientKey("login");
   if (!consumeRateLimit(key, { limit: 10, windowMs: RATE_WINDOW_MS }).allowed) redirect("/login?erro=rate");
   const parsed = loginSchema.safeParse({ email: formData.get("email"), senha: formData.get("senha") });
   if (!parsed.success) redirect("/login?erro=invalid");
 
+  const { prisma } = await import("@backend/lib/prisma");
   const user = await prisma.usuario.findUnique({
     where: { email: parsed.data.email },
     select: { id: true, perfil: true, ativo: true, senhaHash: true },
@@ -83,10 +86,12 @@ export async function logoutAction(): Promise<void> {
 }
 
 export async function requestOrganizerAction(formData: FormData): Promise<void> {
+  if (isDevMockMode()) redirect("/participante?solicitacao=mock");
   const user = await requireRole("PARTICIPANTE");
   if (!consumeRateLimit(`organizer-request:${user.id}`, { limit: 3, windowMs: 60 * 60_000 }).allowed) redirect("/participante?solicitacao=rate");
   const parsed = solicitacaoOrganizadorSchema.safeParse({ intent: formData.get("intent") });
   if (!parsed.success) redirect("/participante?solicitacao=erro");
+  const { requestOrganizerRole } = await import("@backend/auth/account-service");
   const result = await requestOrganizerRole(user.id);
   if (result === "created") await sendEmailToActiveAdmins({ subject: "Nova solicitação de organizador", title: "Solicitação para organizar eventos", paragraphs: [`${user.nome} (${user.email}) enviou uma solicitação que aguarda decisão administrativa.`], link: applicationLink("/admin/solicitacoes-organizador", "Revisar solicitações") });
   redirect(`/participante?solicitacao=${result}`);

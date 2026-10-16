@@ -2,12 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ transaction: vi.fn() }));
 vi.mock("server-only", () => ({}));
+vi.mock("@prisma/client", () => ({
+  Prisma: {
+    TransactionIsolationLevel: { Serializable: "Serializable" },
+    PrismaClientKnownRequestError: class extends Error {},
+  },
+  PerfilUsuario: { ADMIN: "ADMIN", ORGANIZADOR: "ORGANIZADOR" },
+  StatusSolicitacaoOrganizador: { PENDENTE: "PENDENTE", APROVADO: "APROVADO", REJEITADO: "REJEITADO" },
+}));
 vi.mock("@backend/lib/prisma", () => ({ prisma: { $transaction: mocks.transaction } }));
 
 import { decideOrganizerRequest, setUserActive } from "../../src/auth/admin-service";
 
 describe("operações administrativas", () => {
-  beforeEach(() => mocks.transaction.mockReset());
+  beforeEach(() => { mocks.transaction.mockReset(); });
 
   it("aprova uma única solicitação e registra decisor e data na mesma transação", async () => {
     const tx = {

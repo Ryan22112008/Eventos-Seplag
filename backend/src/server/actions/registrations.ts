@@ -5,10 +5,16 @@ import { requireRole } from "@backend/auth/access";
 import { registerForEvent, cancelOwnRegistration } from "@backend/modules/registrations/registration-service";
 import { DomainError } from "@backend/lib/errors";
 import { prisma } from "@backend/lib/prisma";
+import { isDevMockMode } from "@backend/lib/dev-mode";
 import { applicationLink, sendEmail } from "@backend/lib/email/email-service";
 import { consumeRateLimit } from "@backend/auth/rate-limit";
 
 export async function registerForEventAction(formData: FormData): Promise<void> {
+  if (isDevMockMode()) {
+    const eventId = formData.get("eventoId");
+    if (typeof eventId === "string") redirect(`/eventos/${encodeURIComponent(eventId)}?inscricao=ok`);
+    redirect("/eventos?inscricao=erro");
+  }
   const user = await requireRole("PARTICIPANTE");
   if (!consumeRateLimit(`event-registration:${user.id}`, { limit: 20, windowMs: 60 * 60_000 }).allowed) redirect("/eventos?inscricao=rate");
   const eventId = formData.get("eventoId");

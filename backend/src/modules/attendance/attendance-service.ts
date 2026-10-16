@@ -5,6 +5,8 @@ import { prisma } from "@backend/lib/prisma";
 import { canManageEvent } from "@backend/modules/events/event-policy";
 import { createCheckinToken, createTicketToken, hashQrToken, matchesQrToken, parseCheckinToken } from "./checkin-token";
 import { checkinInputSchema, organizerSessionSchema, ticketIdSchema } from "./attendance.schemas";
+import { isDevMockMode } from "@backend/lib/dev-mode";
+import { getPresencesByParticipant } from "@backend/lib/dev-mock-data";
 
 export type AttendanceActor = { id: string; perfil: PerfilUsuario; ativo: boolean };
 export type AttendanceErrorCode = "FORBIDDEN" | "NOT_FOUND" | "TICKET_CANCELLED" | "SESSION_CLOSED" | "SESSION_NOT_OPEN" | "TOKEN_INVALID" | "TOKEN_EXPIRED" | "NOT_ENROLLED" | "ALREADY_PRESENT" | "RATE_LIMITED" | "INVALID_INPUT";
@@ -24,6 +26,9 @@ async function getOwnedEvent(actor: AttendanceActor, eventId: string, client: Pr
 }
 
 export async function issueOwnTicketToken(actor: AttendanceActor, registrationId: string, client: PrismaClient = prisma) {
+  if (isDevMockMode()) {
+    return `dev-ticket-${registrationId}`;
+  }
   requireParticipant(actor);
   const parsedId = ticketIdSchema.safeParse(registrationId);
   if (!parsedId.success) throw new AttendanceError("NOT_FOUND");
@@ -113,6 +118,17 @@ export async function getOrganizerSessionAttendance(actor: AttendanceActor, rawI
 }
 
 export async function listOwnPresences(actor: AttendanceActor, client: PrismaClient = prisma) {
+  if (isDevMockMode()) {
+    return getPresencesByParticipant(actor.id).map((presence) => ({
+      status: presence.status,
+      dataRegistro: presence.dataRegistro,
+      sessao: {
+        nome: presence.sessaoNome,
+        inicio: presence.sessaoInicio,
+        evento: { id: presence.eventoId, titulo: presence.eventoTitulo },
+      },
+    }));
+  }
   requireParticipant(actor);
   return client.presenca.findMany({ where: { participanteId: actor.id }, orderBy: { dataRegistro: "desc" }, take: 50, select: {
     status: true, dataRegistro: true,

@@ -4,8 +4,12 @@ import { requireRole } from "@backend/auth/access";
 import { consumeRateLimit } from "@backend/auth/rate-limit";
 import { AttendanceError, issueOwnTicketToken, issueSessionCheckinToken, registerSessionPresence } from "@backend/modules/attendance/attendance-service";
 import { checkinInputSchema, organizerSessionSchema, ticketIdSchema } from "@backend/modules/attendance/attendance.schemas";
+import { isDevMockMode } from "@backend/lib/dev-mode";
 
 export async function issueTicketQrAction(registrationId: string) {
+  if (isDevMockMode()) {
+    return { ok: true as const, token: `dev-ticket-${registrationId}` };
+  }
   const actor = await requireRole("PARTICIPANTE");
   const id = ticketIdSchema.safeParse(registrationId);
   if (!id.success) return { ok: false as const, code: "not_found" };

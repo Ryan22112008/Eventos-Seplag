@@ -24,10 +24,14 @@ export function middleware(request: NextRequest) {
   requestHeaders.set("x-nonce", nonce);
 
   const isProtected = protectedPrefixes.some((prefix) => request.nextUrl.pathname === prefix || request.nextUrl.pathname.startsWith(`${prefix}/`));
+  const devMockMode = process.env.NODE_ENV !== "production" && process.env.DEV_MOCK_MODE === "true";
   let response: NextResponse;
   if (isProtected && !request.cookies.has("eventos_session")) {
     const loginUrl = new URL("/login", request.url);
     response = NextResponse.redirect(loginUrl);
+  } else if (isProtected && devMockMode && !request.nextUrl.pathname.startsWith("/participante") && !["/organizador", "/admin", "/avaliador/trabalhos"].includes(request.nextUrl.pathname)) {
+    requestHeaders.set("x-dev-mock-path", request.nextUrl.pathname);
+    response = NextResponse.rewrite(new URL("/dev-mock", request.url), { request: { headers: requestHeaders } });
   } else {
     response = NextResponse.next({ request: { headers: requestHeaders } });
   }

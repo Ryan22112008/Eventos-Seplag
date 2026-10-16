@@ -2,6 +2,8 @@ import "server-only";
 import { Prisma, StatusEvento } from "@prisma/client";
 import { prisma } from "@backend/lib/prisma";
 import { parsePublicEventSearchParams } from "./public-event.schemas";
+import { isDevMockMode } from "@backend/lib/dev-mode";
+import { DEV_MOCK_EVENTS, getEventById } from "@backend/lib/dev-mock-data";
 
 export type PublicEventCard = {
   id: string; titulo: string; descricao: string; dataInicio: Date; dataTermino: Date; cidade: string | null;
@@ -17,6 +19,27 @@ export type PublicEventDetails = {
 };
 
 export async function listPublicEvents(rawParams: Record<string, string | string[] | undefined>) {
+  if (isDevMockMode()) {
+    return {
+      valid: true as const,
+      events: DEV_MOCK_EVENTS.map((event) => ({
+        id: event.id,
+        titulo: event.titulo,
+        descricao: event.descricao,
+        dataInicio: event.dataInicio,
+        dataTermino: event.dataTermino,
+        cidade: event.cidade,
+        modalidade: event.modalidade,
+        nicho: event.nicho,
+        vagasRestantes: event.vagasRestantes,
+        cargaHoraria: event.cargaHoraria,
+        banner: event.banner,
+      })) as PublicEventCard[],
+      page: 1,
+      pageSize: 12,
+      totalPages: 1,
+    };
+  }
   const parsed = parsePublicEventSearchParams(rawParams);
   if (!parsed.success) return { valid: false as const, events: [], page: 1, pageSize: 12, totalPages: 0 };
   const { q, nicho, modalidade, cidade, futuro, dataDe, dataAte, page, pageSize } = parsed.data;
@@ -43,6 +66,27 @@ export async function listPublicEvents(rawParams: Record<string, string | string
 }
 
 export async function getPublicEvent(id: string): Promise<PublicEventDetails | null> {
+  if (isDevMockMode()) {
+    const event = getEventById(id);
+    if (!event) return null;
+    return {
+      titulo: event.titulo,
+      descricao: event.descricao,
+      dataInicio: event.dataInicio,
+      dataTermino: event.dataTermino,
+      local: event.local,
+      cidade: event.cidade,
+      urlGoogleMaps: null,
+      latitude: null,
+      longitude: null,
+      modalidade: event.modalidade,
+      nicho: event.nicho,
+      vagasRestantes: event.vagasRestantes,
+      cargaHoraria: event.cargaHoraria,
+      banner: event.banner,
+      disciplinas: event.disciplinas.map((d) => ({ nome: d.nome, cargaHoraria: d.cargaHoraria })),
+    } as unknown as PublicEventDetails;
+  }
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) return null;
   return await prisma.evento.findFirst({ where: { id, status: StatusEvento.PUBLICADO, dataTermino: { gt: new Date() } }, select: {
     titulo: true, descricao: true, dataInicio: true, dataTermino: true, local: true, cidade: true, urlGoogleMaps: true, latitude: true, longitude: true,

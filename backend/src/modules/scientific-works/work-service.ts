@@ -6,6 +6,8 @@ import { DomainError } from "@backend/lib/errors";
 import { canManageEvent } from "@backend/modules/events/event-policy";
 import { getStorageService } from "@backend/lib/storage/local-storage-service";
 import type { StorageService } from "@backend/lib/storage/storage-service";
+import { isDevMockMode } from "@backend/lib/dev-mode";
+import { getScientificWorksByParticipant, getScientificWorkById } from "@backend/lib/dev-mock-data";
 import { evaluationSchema, reviewerAssignmentSchema, workIdSchema, workStatusFilterSchema, workSubmissionSchema } from "./work.schemas";
 import { MAX_SCIENTIFIC_WORK_BYTES, validateScientificPdf } from "./validate-scientific-pdf";
 
@@ -30,6 +32,7 @@ async function readAndValidatePdf(file: File): Promise<Buffer> {
 }
 
 export async function listAvailableSubmissionEvents(actor: WorkActor, client: PrismaClient = prisma) {
+  if (isDevMockMode()) return [];
   requireActiveRole(actor, PerfilUsuario.PARTICIPANTE);
   const [{ now }] = await client.$queryRaw<Array<{ now: Date }>>`SELECT CURRENT_TIMESTAMP(3) AS \`now\``;
   const registrations = await client.inscricao.findMany({
@@ -84,6 +87,22 @@ export async function submitScientificWork(actor: WorkActor, rawInput: unknown, 
 }
 
 export async function listOwnScientificWorks(actor: WorkActor, client: PrismaClient = prisma) {
+  if (isDevMockMode()) {
+    return getScientificWorksByParticipant(actor.id).map((work) => ({
+      id: work.id,
+      titulo: work.titulo,
+      status: work.status,
+      createdAt: work.createdAt,
+      evento: { id: work.eventoId, titulo: work.eventoTitulo },
+      avaliacao: work.avaliacao
+        ? {
+            resultado: work.avaliacao.resultado,
+            parecer: work.avaliacao.parecer,
+            avaliadoEm: work.avaliacao.avaliadoEm,
+          }
+        : null,
+    })) as unknown as Awaited<ReturnType<typeof listOwnScientificWorks>>;
+  }
   requireActiveRole(actor, PerfilUsuario.PARTICIPANTE);
   return client.trabalhoCientifico.findMany({
     where: { autorId: actor.id }, orderBy: { createdAt: "desc" },
@@ -92,6 +111,25 @@ export async function listOwnScientificWorks(actor: WorkActor, client: PrismaCli
 }
 
 export async function getOwnScientificWork(actor: WorkActor, workId: string, client: PrismaClient = prisma) {
+  if (isDevMockMode()) {
+    const work = getScientificWorkById(workId);
+    if (!work) throw new DomainError("NOT_FOUND", "Trabalho não encontrado.");
+    return {
+      id: work.id,
+      titulo: work.titulo,
+      resumo: work.resumo,
+      status: work.status,
+      createdAt: work.createdAt,
+      evento: { id: work.eventoId, titulo: work.eventoTitulo },
+      avaliacao: work.avaliacao
+        ? {
+            resultado: work.avaliacao.resultado,
+            parecer: work.avaliacao.parecer,
+            avaliadoEm: work.avaliacao.avaliadoEm,
+          }
+        : null,
+    } as unknown as Awaited<ReturnType<typeof getOwnScientificWork>>;
+  }
   requireActiveRole(actor, PerfilUsuario.PARTICIPANTE);
   const parsed = workIdSchema.safeParse(workId);
   if (!parsed.success) throw new DomainError("NOT_FOUND", "Trabalho não encontrado.");

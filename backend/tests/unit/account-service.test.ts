@@ -2,13 +2,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ transaction: vi.fn() }));
 vi.mock("server-only", () => ({}));
+vi.mock("@prisma/client", () => ({
+  Prisma: {
+    TransactionIsolationLevel: { Serializable: "Serializable" },
+    PrismaClientKnownRequestError: class extends Error {},
+  },
+  PerfilUsuario: { PARTICIPANTE: "PARTICIPANTE", ORGANIZADOR: "ORGANIZADOR" },
+  StatusSolicitacaoOrganizador: { PENDENTE: "PENDENTE", APROVADO: "APROVADO", REJEITADO: "REJEITADO" },
+}));
 vi.mock("@backend/lib/prisma", () => ({ prisma: { $transaction: mocks.transaction } }));
 
 import { verify } from "argon2";
 import { registerAccount, requestOrganizerRole } from "../../src/auth/account-service";
 
 describe("serviço de cadastro e solicitação de organizador", () => {
-  beforeEach(() => mocks.transaction.mockReset());
+  beforeEach(() => { mocks.transaction.mockReset(); });
 
   it("sempre cria participante e armazena hash Argon2, não a senha", async () => {
     const userCreate = vi.fn().mockResolvedValue({ id: "user-1", nome: "Ana", email: "ana@example.org", perfil: "PARTICIPANTE" });

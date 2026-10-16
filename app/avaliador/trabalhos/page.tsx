@@ -1,11 +1,27 @@
 import Link from "next/link";
 import { requireRole } from "@backend/auth/access";
 import { listAssignedScientificWorks, type ReviewerWorkListItem } from "@backend/modules/scientific-works/work-service";
+import { isDevMockMode } from "@backend/lib/dev-mode";
+import { AccountHeader } from "@frontend/components/account-header";
 
 const labels: Record<string, string> = { SUBMETIDO: "Submetido", EM_AVALIACAO: "Em avaliação", APROVADO: "Aprovado", REJEITADO: "Rejeitado" };
 
 export default async function ReviewerWorksPage() {
   const actor = await requireRole("AVALIADOR");
+  if (isDevMockMode()) {
+    return <main className="mx-auto min-h-screen max-w-4xl px-6 py-10">
+      <AccountHeader user={actor} />
+      <h1 className="text-3xl font-bold">Trabalhos atribuídos</h1>
+      <p className="mt-2 text-slate-600">Esta lista contém somente trabalhos atribuídos à sua conta de demonstração.</p>
+      <p className="mt-4 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">Modo de desenvolvimento — dados fictícios.</p>
+      <ul className="mt-7 divide-y rounded-xl border bg-white">
+        <li className="flex flex-wrap items-center justify-between gap-3 p-5">
+          <div><Link href="/avaliador/trabalhos/dev-trabalho" className="font-semibold text-blue-900 underline">Tecnologia e serviço público</Link><p className="mt-1 text-sm text-slate-600">Seminário de Inovação Pública · Em avaliação (demonstração)</p></div>
+          <Link href="/avaliador/trabalhos/dev-trabalho" className="text-sm text-blue-800 underline">Avaliar</Link>
+        </li>
+      </ul>
+    </main>;
+  }
   const works = await listAssignedScientificWorks(actor);
   return <main className="mx-auto min-h-screen max-w-4xl px-6 py-10">
     <h1 className="text-3xl font-bold">Trabalhos atribuídos</h1>

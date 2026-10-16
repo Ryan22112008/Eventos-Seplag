@@ -30,6 +30,17 @@ mysql://eventos:eventos_local@localhost:3306/eventos
 
 Os valores do Compose são somente para desenvolvimento local. Nunca use essa credencial em produção. As variáveis `SEED_ADMIN_*` são necessárias apenas para criar o primeiro administrador usando `npm run db:seed`. A emissão de certificados exige `CERTIFICATE_INSTITUTION_NAME` e `CERTIFICATE_TEXT`; `CERTIFICATE_LOGO_PATH` é opcional. Esses dados ficam na configuração do servidor para não incluir identificação institucional fictícia nos PDFs. O texto aceita `{{participante}}`, `{{evento}}` e `{{cargaHoraria}}`.
 
+### Interface local sem banco
+
+Para trabalhar nas áreas autenticadas sem MySQL ou Prisma Client, habilite o modo local apenas no processo de desenvolvimento:
+
+```powershell
+$env:DEV_MOCK_MODE = "true"
+npm run dev -- --port 3001
+```
+
+Em `/login`, selecione um dos perfis fictícios PARTICIPANTE, ORGANIZADOR, ADMIN ou AVALIADOR. As áreas protegidas mostram conteúdo demonstrativo não persistente e um aviso de dados fictícios; gravações no banco são bloqueadas. Para voltar ao modo normal, use `$env:DEV_MOCK_MODE = "false"` ou abra um novo terminal sem a variável. O modo é sempre desativado quando `NODE_ENV=production`.
+
 ## Banco e migrations
 
 ```powershell
