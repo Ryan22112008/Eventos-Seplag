@@ -40,7 +40,7 @@ export async function issueOwnTicketToken(actor: AttendanceActor, registrationId
 
 export async function issueSessionCheckinToken(actor: AttendanceActor, rawIds: unknown, client: PrismaClient = prisma) {
   const ids = organizerSessionSchema.safeParse(rawIds);
-  if (!ids.success || !actor.ativo || ![PerfilUsuario.ORGANIZADOR, PerfilUsuario.ADMIN].includes(actor.perfil)) throw new AttendanceError("FORBIDDEN");
+  if (!ids.success || !actor.ativo || (actor.perfil !== PerfilUsuario.ORGANIZADOR && actor.perfil !== PerfilUsuario.ADMIN)) throw new AttendanceError("FORBIDDEN");
   const event = await getOwnedEvent(actor, ids.data.eventoId, client);
   if (event.status !== StatusEvento.PUBLICADO) throw new AttendanceError("SESSION_CLOSED");
   return client.$transaction(async (tx) => {
@@ -92,7 +92,7 @@ export async function registerSessionPresence(actor: AttendanceActor, rawToken: 
 
 export async function getOrganizerSessionAttendance(actor: AttendanceActor, rawIds: unknown, client: PrismaClient = prisma) {
   const ids = organizerSessionSchema.safeParse(rawIds);
-  if (!ids.success || !actor.ativo || ![PerfilUsuario.ORGANIZADOR, PerfilUsuario.ADMIN].includes(actor.perfil)) throw new AttendanceError("FORBIDDEN");
+  if (!ids.success || !actor.ativo || (actor.perfil !== PerfilUsuario.ORGANIZADOR && actor.perfil !== PerfilUsuario.ADMIN)) throw new AttendanceError("FORBIDDEN");
   const event = await getOwnedEvent(actor, ids.data.eventoId, client);
   const session = await client.sessao.findFirst({ where: { id: ids.data.sessaoId, eventoId: event.id }, select: { id: true, nome: true, inicio: true, fim: true, tokenQr: true } });
   if (!session) throw new AttendanceError("NOT_FOUND");

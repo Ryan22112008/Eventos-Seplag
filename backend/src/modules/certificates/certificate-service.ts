@@ -56,7 +56,7 @@ function presencesByParticipant(rows: Array<{ participanteId: string; sessaoId: 
 }
 
 async function getAuthorizedEvent(actor: AttendanceActor, eventId: string, client: PrismaClient): Promise<EventAccess> {
-  if (!actor.ativo || ![PerfilUsuario.ORGANIZADOR, PerfilUsuario.ADMIN].includes(actor.perfil)) throw new DomainError("FORBIDDEN");
+  if (!actor.ativo || (actor.perfil !== PerfilUsuario.ORGANIZADOR && actor.perfil !== PerfilUsuario.ADMIN)) throw new DomainError("FORBIDDEN");
   const parsedId = frequencyEventIdSchema.safeParse(eventId);
   if (!parsedId.success) throw new DomainError("NOT_FOUND", "Evento não encontrado.");
   const event = await client.evento.findUnique({ where: { id: parsedId.data } });

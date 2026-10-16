@@ -7,7 +7,7 @@ import { getEventFrequencyReport } from "@backend/modules/certificates/certifica
 import { calculateEventRates } from "./event-metrics";
 
 export async function getEventMetrics(actor: { id: string; perfil: PerfilUsuario; ativo: boolean }, eventId: string, client: PrismaClient = prisma) {
-  if (!actor.ativo || ![PerfilUsuario.ORGANIZADOR, PerfilUsuario.ADMIN].includes(actor.perfil)) throw new DomainError("FORBIDDEN", "Acesso negado.");
+  if (!actor.ativo || (actor.perfil !== PerfilUsuario.ORGANIZADOR && actor.perfil !== PerfilUsuario.ADMIN)) throw new DomainError("FORBIDDEN", "Acesso negado.");
   const event = await client.evento.findUnique({ where: { id: eventId }, select: { id: true, titulo: true, vagasTotais: true, vagasRestantes: true, presencaFinalizada: true, organizadorId: true } });
   if (!event || !canManageEvent(actor, event.organizadorId)) throw new DomainError("NOT_FOUND", "Evento não encontrado.");
 

@@ -23,14 +23,14 @@ export async function listPublicEvents(rawParams: Record<string, string | string
   const now = new Date();
   const filters: Prisma.EventoWhereInput[] = [{ status: StatusEvento.PUBLICADO }, { dataTermino: { gt: now } }];
   if (q) filters.push({ OR: [
-    { titulo: { contains: q, mode: "insensitive" } },
-    { descricao: { contains: q, mode: "insensitive" } },
-    { nicho: { contains: q, mode: "insensitive" } },
-    { cidade: { contains: q, mode: "insensitive" } },
+    { titulo: { contains: q } },
+    { descricao: { contains: q } },
+    { nicho: { contains: q } },
+    { cidade: { contains: q } },
   ] });
-  if (nicho) filters.push({ nicho: { equals: nicho, mode: "insensitive" } });
+  if (nicho) filters.push({ nicho: { equals: nicho } });
   if (modalidade) filters.push({ modalidade });
-  if (cidade) filters.push({ cidade: { equals: cidade, mode: "insensitive" } });
+  if (cidade) filters.push({ cidade: { equals: cidade } });
   if (futuro === "true") filters.push({ dataInicio: { gt: now } });
   if (dataDe || dataAte) filters.push({ dataInicio: { ...(dataDe ? { gte: dataDe } : {}), ...(dataAte ? { lte: new Date(dataAte.getTime() + 86_399_999) } : {}) } });
   const where: Prisma.EventoWhereInput = { AND: filters };

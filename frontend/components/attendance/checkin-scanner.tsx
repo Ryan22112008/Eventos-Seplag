@@ -28,8 +28,8 @@ export function CheckinScanner() {
     processingRef.current = true; stopCamera(); setState("validating"); setMessage("Validando sua presença…");
     try {
       const result = await checkInWithQrAction(token);
-      if (!result.ok) { setState("error"); setMessage(messages[result.code] ?? "Não foi possível validar este QR Code."); }
-      else if (result.state === "already") { setState("already"); setDetails(result); setMessage("Sua presença já foi registrada."); }
+      if (!result.ok && result.code === "already_present") { setState("already"); setMessage(messages[result.code]); }
+      else if (!result.ok) { setState("error"); setMessage(messages[result.code] ?? "Não foi possível validar este QR Code."); }
       else { setState("success"); setDetails(result); setMessage("Presença registrada com sucesso."); }
     } catch { setState("error"); setMessage("Não foi possível conectar ao serviço de check-in. Tente novamente."); }
   }

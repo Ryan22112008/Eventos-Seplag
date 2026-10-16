@@ -104,7 +104,7 @@ export async function getOwnScientificWork(actor: WorkActor, workId: string, cli
 }
 
 export async function listEventScientificWorks(actor: WorkActor, eventId: string, rawStatus: unknown = "TODOS", client: PrismaClient = prisma) {
-  if (!actor.ativo || ![PerfilUsuario.ORGANIZADOR, PerfilUsuario.ADMIN].includes(actor.perfil)) throw new DomainError("FORBIDDEN", "Acesso negado.");
+  if (!actor.ativo || (actor.perfil !== PerfilUsuario.ORGANIZADOR && actor.perfil !== PerfilUsuario.ADMIN)) throw new DomainError("FORBIDDEN", "Acesso negado.");
   const filter = workStatusFilterSchema.parse(rawStatus);
   const parsedEventId = workIdSchema.safeParse(eventId);
   if (!parsedEventId.success) throw new DomainError("NOT_FOUND", "Evento não encontrado.");
@@ -121,7 +121,7 @@ export async function listEventScientificWorks(actor: WorkActor, eventId: string
 }
 
 export async function listActiveReviewers(actor: WorkActor, eventId: string, client: PrismaClient = prisma) {
-  if (!actor.ativo || ![PerfilUsuario.ORGANIZADOR, PerfilUsuario.ADMIN].includes(actor.perfil)) throw new DomainError("FORBIDDEN", "Acesso negado.");
+  if (!actor.ativo || (actor.perfil !== PerfilUsuario.ORGANIZADOR && actor.perfil !== PerfilUsuario.ADMIN)) throw new DomainError("FORBIDDEN", "Acesso negado.");
   const parsed = workIdSchema.safeParse(eventId);
   if (!parsed.success) throw new DomainError("NOT_FOUND", "Evento não encontrado.");
   const event = await client.evento.findUnique({ where: { id: parsed.data }, select: { organizadorId: true } });
@@ -130,7 +130,7 @@ export async function listActiveReviewers(actor: WorkActor, eventId: string, cli
 }
 
 export async function assignScientificWorkReviewer(actor: WorkActor, rawInput: unknown, client: PrismaClient = prisma) {
-  if (!actor.ativo || ![PerfilUsuario.ORGANIZADOR, PerfilUsuario.ADMIN].includes(actor.perfil)) throw new DomainError("FORBIDDEN", "Acesso negado.");
+  if (!actor.ativo || (actor.perfil !== PerfilUsuario.ORGANIZADOR && actor.perfil !== PerfilUsuario.ADMIN)) throw new DomainError("FORBIDDEN", "Acesso negado.");
   const input = reviewerAssignmentSchema.parse(rawInput);
   return client.$transaction(async (tx) => {
     const lock = await tx.$queryRaw<Array<{ id: string }>>`SELECT \`id\` FROM \`trabalhos_cientificos\` WHERE \`id\` = ${input.trabalhoId} FOR UPDATE`;
@@ -140,7 +140,7 @@ export async function assignScientificWorkReviewer(actor: WorkActor, rawInput: u
       evento: { select: { organizadorId: true } }, avaliacao: { select: { id: true } },
     } });
     if (!work || !canManageEvent(actor, work.evento.organizadorId)) throw new DomainError("NOT_FOUND", "Trabalho não encontrado.");
-    if (work.avaliacao || ![StatusTrabalhoCientifico.SUBMETIDO, StatusTrabalhoCientifico.EM_AVALIACAO].includes(work.status)) throw new DomainError("INVALID_STATE", "Este trabalho não pode receber atribuição.");
+    if (work.avaliacao || (work.status !== StatusTrabalhoCientifico.SUBMETIDO && work.status !== StatusTrabalhoCientifico.EM_AVALIACAO)) throw new DomainError("INVALID_STATE", "Este trabalho não pode receber atribuição.");
     const reviewer = await tx.usuario.findFirst({ where: { id: input.avaliadorId, perfil: PerfilUsuario.AVALIADOR, ativo: true }, select: { id: true } });
     if (!reviewer) throw new DomainError("INVALID_DATA", "Selecione um avaliador ativo.");
     if (work.avaliadorId && work.avaliadorId !== reviewer.id) throw new DomainError("CONFLICT", "Este trabalho já está atribuído a outro avaliador.");
